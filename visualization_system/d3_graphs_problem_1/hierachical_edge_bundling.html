@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<style>
+div{
+  background-color : #fff;
+}
+
+.node {
+  font: 15px sans-serif;
+  fill: #d3d3d3;
+}
+
+.link {
+  stroke: steelblue;
+  stroke-opacity: 0.5;
+  fill: none;
+  stroke: #ff;
+  pointer-events: none;
+}
+</style>
+
+<head>
+<script src="src/semantic.min.js"></script>
+<script src="src/d3.v4.min.js"></script>
+<script src="src/jQuery.js"></script>
+<link type="text/css" rel="styleSheet"  href="semantic.min.css" />
+</head>
+
+<body>
+<script>
+//-------------------------------------//
+// 文件描述: node_name, size(value), import_node_names  .json格式
+file_name = "hierachical_edge_bundling.json"
+//-------------------------------------//
+</script>
+
+
+<!------交互------>
+<script>
+$(document).ready(function(){
+    var svg = d3.select("div.draw").append("svg")
+          .attr("width", 2000)
+          .attr("height", 1000)
+    var file_name,
+        selected_protocol;
+
+    $('#input_button').click(function(){
+        //$("select_buttons").remove();
+        file_name = $('#attri_text_input').val() + ".json"
+        file_name="trans_function/KUN_graph.json"
+        draw_graph(file_name, 0, 0)
+    })
+    
+
+});
+</script>
+
+<div id="xxx">
+    <div class="ui  input">
+    <input id="attri_text_input" type="text" name="fname" placeholder="属性名">
+    <button class="ui  gray button" id="input_button">查询</button>
+    </div>
+    <div class="protocol_buttons"></div>
+
+    <div class="group_buttons"></div>
+
+    <div class="draw">
+    </div>
+</div>
+<!------交互------>
+
+
+
+
+<script>
+
+var color = d3.schemeCategory20;
+var group_set;
+
+/*-------画按钮--------*/
+function draw_button(attri_set, set_type) {
+  //tmp_set = Array.from(group_set)
+  for (var attri of attri_set) {
+    try{
+      d3.select("#"+set_type+attri).remove();}
+    catch{
+    }
+    d3.select("div." + set_type)
+      .append("button")
+      .attr("class", "ui gray button")
+      .attr("id", set_type+attri)
+      .attr("style", function(){
+        if (set_type == "group_buttons"){
+          return "background-color:"+color[Array.from(group_set).indexOf(attri)]+";color:white";
+        }})
+      .text(attri)
+  }
+  $('.protocol_buttons').children().click(function() {
+    var selected_protocol = $(this).text();
+    console.log(file_name)
+    console.log(selected_protocol);
+    draw_graph(file_name, selected_protocol, 0);
+  })
+
+//  $('.group_buttons').children().click(function() {
+//    var selected_group = $(this).text();
+    //draw_graph(file_name, 0, selected_group);
+//  })
+
+}
+
+
+/*----- 画捆图 ----*/
+function draw_graph(file_path, protocol_type, group_type) {
+    var protocol_type;
+    var group_type;
+    $("svg").remove();
+    $("ui  button:gt(0)").remove();
+
+    var diameter = 800,      
+        radius = diameter / 2,  // 外径
+        innerRadius = radius - diameter/6;   // 内径
+
+    var cluster = d3.cluster()
+        .size([360, innerRadius]);  // 角度 深度
+
+    var line = d3.radialLine()
+        .curve(d3.curveBundle.beta(0.85))
+        .radius(function(d) { return d.y; })
+        .angle(function(d) { return d.x / 180 * Math.PI; });
+
+    var svg = d3.select("div.draw").append("svg")
+        .attr("width", 2*diameter)
+        .attr("height", 2*diameter)
+        .append("g")
+        .attr("transform", "translate(" + 1*radius + "," + 0.9*radius + ")");
+
+    var link = svg.append("g").selectAll(".link"),
+        node = svg.append("g").selectAll(".node");
+
+    d3.json(file_path, function(error, classes) {
+      if (error) throw error;
+
+      protocols_set = new Set()
+      for (var i in classes){
+        for (var key in classes[i].imports){
+          protocols_set.add(key)
+        }
+      }
+      if (!protocol_type && !group_type){
+        group_set = new Set()
+        for (var i in classes){
+          group_set.add(classes[i].group)
+        }
+        draw_button(protocols_set, "protocol_buttons")
+        draw_button(group_set, "group_buttons")
+        for (var i in classes){
+          tmp = []
+          for (var proto of protocols_set){
+            if (proto in classes[i].imports){
+              tmp = tmp.concat(classes[i].imports[proto]);
+            }
+          }
+          classes[i].imports = tmp
+        }
+
+      }
+      else if (protocol_type){
+        for (var i in classes){
+          classes[i].imports = classes[i].imports[protocol_type]
+        }
+      }
+
+
+      var root = packageHierarchy(classes)
+          .sum(function(d) { return d.size; });
+      cluster(root);
+
+      
+
+      console.log(root)
+      link = link
+          .data(packageImports(root.leaves()))
+          .enter()
+          .append("path")
+          .each(function(d) { d.source = d[0], d.target = d[d.length - 1]; })
+          .attr("class", "link")
+          .attr("d", line);
+
+      
+      node = node
+          .data(root.leaves())
+          .enter()
+          .append("text")
+          .attr("class", "node")
+          .attr("dy", "0.31em")
+          /////////////////在这里加一行可以加颜色
+          .style("fill", function(d, i) {return color[Array.from(group_set).indexOf(d.data.group)]; })
+          .style("stroke", function(d, i) {return color[Array.from(group_set).indexOf(d.data.group)]; })
+          .attr("transform", function(d) { return "rotate(" + (d.x - 90) + ")translate(" + (d.y + 8) + ",0)" + (d.x < 180 ? "" : "rotate(180)"); })
+          .attr("text-anchor", function(d) { return d.x < 180 ? "start" : "end"; })
+          .text(function(d) { ;return d.data.key; });
+      
+    });
+}
+
+// Lazily construct the package hierarchy from class names.
+function packageHierarchy(classes) {
+  var map = {};
+
+  function find(name, data) {
+    var node = map[name], i;
+    if (!node) {
+      node = map[name] = data || {name: name, children: []};
+      if (name.length) {
+        node.parent = find(name.substring(0, i = name.lastIndexOf(".")));
+        node.parent.children.push(node);
+        node.key = name;
+      }
+    }
+    return node;
+  }
+
+  classes.forEach(function(d) {
+    find(d.name, d);
+  });
+
+  return d3.hierarchy(map[""]);
+}
+
+// Return a list of imports for the given array of nodes.
+function packageImports(nodes) {
+  var map = {},
+      imports = [];
+
+  // Compute a map from name to node.
+  nodes.forEach(function(d) {
+    map[d.data.name] = d;
+  });
+
+  // For each import, construct a link from the source to target node.
+  nodes.forEach(function(d) {
+    if (d.data.imports) d.data.imports.forEach(function(i) {
+      imports.push(map[d.data.name].path(map[i]));
+    });
+  });
+
+  return imports;
+}
+
+</script>
+
+
+
+
+
+
+</body>

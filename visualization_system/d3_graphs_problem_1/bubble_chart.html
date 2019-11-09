@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+
+<body>
+<script src="src/semantic.min.js"></script>
+<script src="src/jQuery.js"></script>
+<link type="text/css" rel="styleSheet"  href="semantic.min.css" />
+<script src="src/d3.v4.js"></script>
+
+<div id="file_input_div">
+    <div class="ui input">
+    <input id="file_input" type="text" name="fname" placeholder="文件名(.csv格式)">
+    <button class="ui  gray button" id="input_button">导入</button>
+    </div>
+</div>
+
+
+<script>
+//搜索框
+$(document).ready(function(){
+    var file_path="bubble_500.csv",
+        selected_protocol;
+    // 输入加载的协议类型
+    $('#input_button').click(function(){
+      // 力导向图文件路径
+      file_path = "bubble_chart_data/"+$('#file_input').val()
+      console.log(file_path)
+      draw(file_path);
+      // 根据输入的文件名来加载力导向图和条形图
+      window.parent.frames[1].location="/force_graph2.html?file=" + file_path.slice(0, file_path.indexOf('.'))
+      window.parent.frames[2].location="/bar_chart.html?type=" + file_path.slice(0, file_path.indexOf('.'))
+      
+    })
+});
+
+</script>
+
+<script>
+
+function draw(file_name){
+  $("svg").remove();
+
+  // 获取svg 元素，计算相关宽度和高度
+  var svg = d3.select("body")
+              .append("svg")
+              .attr("width", 500)
+              .attr("height", 500)
+              .attr("transform", "translate(0, 0)")
+              .attr("font-family", "sans-serif")
+              .attr("font-size", "10")
+              .attr("text-anchor", "middle")
+              .attr("transform", "translate(0,0)")
+  var    width = +svg.attr("width"),
+      height = +svg.attr("height");
+
+  // 定义将数组转化成字符串的格式
+  var format = d3.format(",d");
+  // 定义颜色
+  var color = d3.scaleOrdinal(d3.schemeCategory20c);
+
+  // 打包布局，定义不均宽、高范围以及内间距
+  var pack = d3.pack()
+      .size([width, height])
+      .padding(1.5);
+
+
+  d3.csv(file_name, function(d) {
+    // 将d.value值转换为正数数值类型
+    //console.log(d)
+    d.value = +d.value;
+    // 过滤掉csv文件中无效的数据，即value为0的数据
+    if (d.value) return d;
+  }, function(error, classes) {
+    if (error) throw error;
+
+    // 处理csv文件中的数据，使之适应bubble chart的需求
+    var root = d3.hierarchy({children: classes})
+        // sum()函数遍历整个数组，并且计算每个节点上所有子节点的value总和，这里因为是
+        //         单个节点，因此直接返回value
+        .sum(function(d) { return d.value; }) 
+        .each(function(d) {
+          // 通过字符串处理，获取数组id中的类名部分，即计算d.class的值，如csv文件中的值
+          //         id = flare.analytics.cluster.AgglomerativeCluster,那么class为
+          //         AgglomerativeCluster,package为flare.analytics.cluster    
+          if (id = d.data.id) {
+            var id, i = id.lastIndexOf(".");
+            d.id = id;
+            d.package = id.slice(0, i);
+            d.class = id;
+          }
+        });
+
+    // 生成节点，并绑定上面转换后的数据，并设置class,transform等属性值
+    var node = svg.selectAll(".node")
+      .data(pack(root).leaves())
+      .enter().append("g")
+        .attr("class", "node")
+        .attr("transform", function(d) { return "translate(" + d.x + "," + d.y + ")"; });
+
+    // 为节点添加circle元素并设置相关属性
+    node.append("circle")
+        .attr("id", function(d) { return d.id; })
+        .attr("r", function(d) { return d.r; })
+        .style("fill", function(d) { return color(d.package); });
+
+    // 设置剪裁路径
+    node.append("clipPath")
+        .attr("id", function(d) { return "clip-" + d.id; })
+      // 设置use元素及其内容物为id为d.id的元素，即上面定义的 circle元素 ，作为裁减路径
+      .append("use")
+        .attr("xlink:href", function(d) { return "#" + d.id; });
+    ////////////////////// 在这里设定阈值/////////////
+    threshold_val = 20
+
+    // 定义节点上的文字及其剪裁路径、数据绑定、位置坐标等属性
+    node.append("text")
+        .attr("font-size","15px")
+        .attr("clip-path", function(d) { return "url(#clip-" + d.id + ")"; })
+        .selectAll("tspan")
+        // 用split函数给显示文本分段，以便在tspan标签中分行显示，split后数组有多长，那么就创建
+        //         几个tsapn标签来存放这些文本；随后设置文本的其实位置x为0，y坐标根据一定的距离进行下移
+        .data(function(d) {if (d.r > threshold_val) return d.class.split(/(?=[A-Z][^A-Z])/g);return '' })
+        .enter().append("tspan")
+          .attr("x", 0)
+          .attr("y", function(d, i, nodes) { return 13 + (i - nodes.length / 2 - 0.5) * 10; })
+          .text(function(d,i) { return d; });
+
+    // 定义title的文本内容及格式
+    node.append("title")
+        .text(function(d) { return "IP: " + d.id + "\nLength: " + format(d.value); });
+  });
+}
+</script>
+
+</body>

@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<style>
+
+.node {
+  fill: #fff;
+  stroke-width: 1.5px;
+}
+
+.link {
+  stroke: #999;
+  stroke-opacity: .6;
+}
+.d3-tip {
+  line-height: 1;
+  font-weight: bold;
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.8);
+  color: #fff;
+  border-radius: 2px;
+}
+</style>
+<body>
+<div id="node_query">
+    <div class="ui input">
+    <input id="node_input" type="text" name="fname" placeholder="IP地址">
+    <button class="ui gray button" id="input_button">查询</button>
+    <button class="ui gray button" id="reload">刷新</button>
+    </div>
+</div>
+
+
+<script src="d3.v3.js"></script>
+<script src="d3.tip.v0.6.3.js"></script>
+<script src="semantic.min.js"></script>
+<script src="jQuery.js"></script>
+<link type="text/css" rel="styleSheet"  href="semantic.min.css" />
+
+<script>
+//搜索框
+var DEBUG=1;
+$(document).ready(function(){
+    var file_path,
+        selected_protocol;
+    ///////////////////交互
+    file_path = "force_data/FORCE_"+ getFile()+".json"
+    if(DEBUG) {
+      console.log(file_path)
+    }
+    if (getFile()){
+      draw(file_path, 0)
+    }
+    
+    var node_name
+    // 选择IP节点按钮
+    $('#input_button').click(function(){
+        if ($('#node_input').val()){
+          node_name = $('#node_input').val()
+        }
+        //$(node_name).css("fill", "#ff0000")
+        selected_node = $("[id='" +node_name +"']");
+        selected_node.css("fill", "#ff0000");
+        selected_node.attr("r", 10);
+        if (node_name){
+          console.log(node_name);
+            if (window.parent.frames[2].location.href.indexOf("ip") != -1){
+              start_p = window.parent.frames[2].location.href.indexOf("ip")
+              window.parent.frames[2].location = window.parent.frames[2].location.href.slice(0, start_p) +"ip="+node_name
+            }
+            else {
+              window.parent.frames[2].location=window.parent.frames[2].location +"&ip="+node_name
+            }
+        }
+    })
+
+    // 刷新按钮
+    $('#reload').click(function(){
+        $('#node_input').val("")
+        draw(file_path, 0)
+        try{
+          window.parent.frames[2].location="/bar_chart.html"
+          console.log(window.parent.frames[2].location)
+        }
+        catch{
+        }
+    })
+
+});
+function getFile(){
+  urlinfo=window.location.href; //获取当前页面的url
+  len=urlinfo.length;//获取url的长度
+  offset=urlinfo.indexOf("?");//设置参数字符串开始的位置
+  newsidinfo=urlinfo.substr(offset,len)//取出参数字符串 这里会获得类似“id=1”这样的字符串
+  newsids=newsidinfo.split("=");//对获得的参数字符串按照“=”进行分割
+  newsid=newsids[1];//得到参数值
+  newsname=newsids[0];//得到参数名字
+  return newsid
+}
+</script>
+
+
+
+
+
+
+<script>
+function draw(file_name){
+  graph_data = d3.json(file_name, function(error, graph) {
+    
+    console.log(graph)
+    
+    var node_tip = d3.tip()
+    .attr('class', 'd3-tip')
+    .offset([-10, 0])
+    .html(function(d) {
+      return "<div><strong>IP:</strong> <span style='color:red'>" + d.name + "</span>"
+        +"</div>"
+    })
+
+  var link_tip = d3.tip()
+    .attr('class', 'd3-tip')
+    .offset([-10, 0])
+    .html(function(d) {
+      return "<div>" + (d.target.name) 
+        + "-" + (d.source.name) + "<br>Length:" + d.value + "</div>"
+    })
+
+
+  var width = 800,
+      height = 500;
+
+  var color = d3.scale.category20();
+
+  var force = d3.layout.force()
+      .charge(-50)
+      .linkDistance(30)
+      .size([width, height]);
+
+  $("svg.force").remove()
+  var svg = d3.select("body").append("svg")
+      .attr("class", "force")
+      .attr("width", width)
+      .attr("height", height);
+
+  svg.call(node_tip)
+  svg.call(link_tip)
+
+    force
+        .nodes(graph.nodes)
+        .links(graph.links)
+        .start();
+
+    var link = svg.append("g").selectAll(".link")
+        .data(graph.links)
+      .enter().append("line")
+        .attr("class", "link")
+        .style("stroke-width", function(d) { return Math.sqrt(d.value); }) // 线条的粗细
+        .on('mouseover', link_tip.show)
+        .on('mouseout', link_tip.hide)
+
+    var node = svg.append("g").selectAll(".node")
+        .data(graph.nodes)
+        .enter().append("circle")
+          .attr("class", "node")
+          .attr("id", function(d) {return d.name})
+          .attr("r", 5)
+          .style("fill", function(d) { return color(d.group); })
+          .call(force.drag)
+        .on('mouseover', node_tip.show)
+        .on('mouseout', node_tip.hide)
+
+    node.append("title")
+        .text(function(d) { return d.name; });
+
+    force.on("tick", function() {
+      link.attr("x1", function(d) { return d.source.x; })
+          .attr("y1", function(d) { return d.source.y; })
+          .attr("x2", function(d) { return d.target.x; })
+          .attr("y2", function(d) { return d.target.y; });
+
+      node.attr("cx", function(d) { return d.x; })
+          .attr("cy", function(d) { return d.y; });
+    });
+  });
+  return graph_data
+
+}
+</script>

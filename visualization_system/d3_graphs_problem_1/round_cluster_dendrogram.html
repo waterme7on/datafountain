@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<style>
+.node {
+    font: 15px sans-serif;
+}
+.node circle{
+    fill:#fff;
+    stroke:steelblue;
+    stroke-width: 1.5px;
+}
+.link {
+    stroke: steelblue;
+    stroke-opacity: 0.5;
+    fill: none;
+    pointer-events: none;
+}
+</style>
+<head>
+<script src="src/d3.v4.js"></script>
+<script src="src/jQuery.js"></script>
+</head>
+
+<body>
+<script>
+//--------改这里----------//
+// 文件描述: node_name, size(value), import_node_names  .json格式
+file_name = "tree.json"
+//-----------------------//
+
+</script>
+
+<script>
+
+var diameter = 1300,      
+    radius = diameter / 2;  // 外径
+
+function draw(error, data){
+    if (error)  throw(error);
+
+    // 删除原有画布再画
+    $("svg").remove();
+
+    var tree = d3.cluster().size([2 * Math.PI, radius - 100]);
+    
+    const root = tree(d3.hierarchy(data)
+      .sort((a, b) => (a.height - b.height) || a.data.name.localeCompare(b.data.name)));
+    
+    var svg = d3.select("body").append("svg")
+        .attr("width",2*diameter)
+        .attr("height",diameter)
+        .append("g")
+        .attr("transform", "translate(" + 1.5*radius + "," + radius + ")");
+
+    var links = root.links();
+    var nodes = root.descendants().reverse();
+    
+    var link = svg.selectAll(".link")
+        .data(links)
+        .enter()
+        .append("path")
+        .attr("class","link")
+        .attr("d", d3.linkRadial()
+            .angle(d => d.x)
+            .radius(d => d.y));
+
+    var node = svg.selectAll(".node")
+        .data(nodes)
+        .enter().append("g")
+        .attr("class", "node")
+        .attr("transform", d => `
+            rotate(${d.x * 180 / Math.PI - 90})
+            translate(${d.y},0)
+        `)
+
+    node.append("circle")
+        .attr("r", 5)
+        .style("fill",d => d.children?"steelblue":"white")
+
+    node.append("text")
+        .attr("dy", "0.31em")
+        .attr("x", d => d.x < Math.PI === !d.children ? 6 : -6)
+        .attr("text-anchor", d => d.x < Math.PI === !d.children ? "start" : "end")
+        .attr("transform", d => d.x >= Math.PI ? "rotate(180)" : null)
+        .text(d => d.data.name)
+        .filter(d => d.children)
+        .clone(true).lower()
+        .attr("stroke", "white");
+
+}
+
+
+d3.json(file_name, draw);
+
+
+
+
+
+</script>
+
+</body>

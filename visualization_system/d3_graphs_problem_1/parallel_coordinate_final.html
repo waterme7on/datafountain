@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<style>
+body{
+    width:100%;
+    height:100%;
+    font-family: 'Arial', sans-serif;
+    background-color : #ff;
+}
+svg {
+  font: 20px sans-serif;
+  fill: #737373;
+
+}
+
+.background path {
+  fill: none;
+  stroke: #ccc;
+  stroke-opacity: .4;
+  shape-rendering: crispEdges;
+}
+
+.foreground path {
+  border:3px; 
+  font-weight:bold;
+  fill: none;
+  stroke: steelblue;
+  stroke-opacity: .5;
+  stroke-width: 3;      
+  shape-rendering: crispEdges;
+}
+
+.brush .extent {
+  fill-opacity: .3;
+  stroke: #fff;
+  shape-rendering: crispEdges;
+}
+
+.axis line, .axis path {
+  fill: #778899;
+  border:2px; 
+  shape-rendering: crispEdges;
+}
+
+.axis text {
+  text-shadow: 0 1px 0 #111111;
+}
+
+</style>
+<body>
+<script src="src/d3.v3.min.js"></script>
+<script>
+
+var m = [30, 10, 10, 10],
+    w = 1500 - m[1] - m[3],
+    h = 1000 - m[0] - m[2];
+
+
+// 文件描述: src, dst, protocol....
+var file_name = "servers.csv"
+
+
+
+
+
+
+
+
+var x = d3.scale.ordinal().rangePoints([0, w], .5),
+    y = {};
+
+var line = d3.svg.line(),
+    axis = d3.svg.axis().orient("left"),
+    background,
+    foreground;
+
+var svg = d3.select("body").append("svg")
+    .attr("width", w + m[1] + m[3])
+    .attr("height", h + m[0] + m[2])
+  .append("g")
+    .attr("transform", "translate(" + m[3] + "," + m[0] + ")");
+  var texts = {};
+  var indexs = {};
+
+/////////// ALL_IN_ONE 文件名
+d3.csv(file_name, function(error, tcp_data) {
+  if (error) throw error;
+  keys = new Array();
+  for (var key in tcp_data[0]) {
+    //console.log(key)
+    keys.push(key);
+  }
+  //console.log("==================")
+
+
+  ////////////////////// src_ip, dst_ip, protocol
+  for (var i = 0; i < keys.length; i++) {
+    //console.log(typeof(keys[i]));
+    var tmpSet = new Set();
+    for (var j = 0; j < tcp_data.length; j++){
+      tmpSet.add(tcp_data[j][keys[i]]);
+    }
+    var tmpText = new Array();
+    for (var j = 0; j < tmpSet.size; j++){
+      tmpText.push((j+1) * (h/tmpSet.size))
+    }
+    indexs[keys[i]] = Array.from(tmpSet);
+    texts[keys[i]] = tmpText;    
+  }
+
+  console.log("--------------------texts--------------------------")
+  console.log(indexs)
+  console.log(texts)
+  //console.log(indexs[keys[1]])
+  console.log("----------------------------------------------")
+  
+  
+  /////////////////////////////////////////
+
+  //采用prototype原型实现方式，查找元素在数组中的索引值
+  Array.prototype.getArrayIndex = function(obj){
+      for(var i=0;i<this.length;i++){
+          if(this[i]===obj){
+              return i;
+          }
+      }
+      return -1;
+  }
+
+
+  //////// 这里有个d != 'id', 意思是省略某列
+  // Extract the list of dimensions and create a scale for each.
+  x.domain(dimensions = d3.keys(tcp_data[0]).filter(function(d) {
+    return d != "degree" && (y[d] = d3.scale.ordinal()
+        .domain(
+          indexs[d]
+//          d3.extent(tcp_data, function(p) {
+//            console.log("-----------------------")
+//            console.log(d) // 属性
+//           console.log(p[d]) // 想要的值
+//            console.log("-----------------------")
+//           return +indexs[d].getArrayIndex(p[d]);
+//        })
+        
+        )
+        .range(texts[d]));
+  }));
+
+
+/*  // Add grey background lines for context.
+  background = svg.append("g")
+        .attr("class", "background")
+        .selectAll("path")
+        .data(tcp_data)
+        .enter()
+        .append("path")
+        .attr("d", path);
+  */
+  // Add blue foreground lines for focus.
+  foreground = svg.append("g")
+        .attr("class", "foreground")
+        .selectAll("path")
+        .data(tcp_data)
+        .enter()
+        .append("path")
+        .attr("d", path);
+
+  // Add a group element for each dimension.
+  var g = svg.selectAll(".dimension")
+        .data(dimensions)
+        .enter().append("g")
+        .attr("class", "dimension")
+        .attr("transform", function(d) { return "translate(" + x(d) + ")"; });
+
+
+  // Add an axis and title.
+  g.append("g")
+        .attr("class", "axis")
+        .each(function(d) {
+          // d: 列名
+          if (keys.getArrayIndex(d) == keys.length - 1){
+            or = "right"
+          }
+          else{
+            or = "left"
+          }
+          d3.select(this).call(
+            axis.scale(y[d]).orient(or).ticks(indexs[d].length).tickPadding(5)
+          ); 
+        })
+        .append("text")
+        .attr("text-anchor", "middle")
+        .attr("y", -9)
+        .text(String);
+
+
+  // Add and store a brush for each axis.
+  g.append("g")
+        .attr("class", "brush")
+        .each(function(d) { 
+          d3.select(this).call(y[d].brush = d3.svg.brush().y(y[d]).on("brush", brush)); 
+        })
+        .selectAll("rect")
+        .attr("x", -10)
+        .attr("width", 20);
+  });
+
+
+  
+  // Returns the path for a given data point.
+  function path(d) {
+    return line(dimensions.map(function(p) {
+      //console.log(indexs)
+      return [x(p), y[p](indexs[p].getArrayIndex(d[p]))]; 
+    }));
+  }
+
+  // Handles a brush event, toggling the display of foreground lines.
+  function brush() {
+    var actives = dimensions.filter(function(p) {
+        // p 为一行
+        return !y[p].brush.empty(); 
+      }),
+      extents = actives.map(function(p) {
+        // p 为某列坐标名
+        return y[p].brush.extent(); 
+      });
+      foreground.style("display", function(d) {
+        return actives.every(function(p, i) {
+          //console.log(d[p]) // 具体属性
+          //console.log(p)  // 坐标名字
+          //console.log("-----------")
+          //console.log(indexs[p].getArrayIndex(d[p]))
+          var x = (indexs[p].getArrayIndex(d[p])+1) * h / indexs[p].length
+          // extend[i][0]是开始, extents[i][1]是截至位置
+          // console.log("--------------------------------")
+          // console.log(x)
+          // console.log(i)
+          // console.log(extents[i])
+          // console.log("--------------------------------")
+          return extents[i][0] <= x && x <= extents[i][1];
+        }) ? null : "none";
+
+    });
+  }
+
+</script>

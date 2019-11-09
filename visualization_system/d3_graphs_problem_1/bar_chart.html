@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<style>
+
+body {
+  font: 10px sans-serif;
+}
+
+.axis text {
+  font: 10px sans-serif;
+}
+.axis path {
+  fill: none;
+  stroke: #000;
+  shape-rendering: crispEdges;
+}
+.axis line {
+  fill: none;
+  stroke: #000;
+  shape-rendering: crispEdges;
+}
+.axis--x path {
+  display: none;
+}
+.bar {
+  fill: steelblue;
+}
+
+.bar:hover {
+  fill: orangered ;
+}
+
+.x.axis path {
+  display: none;
+}
+
+.d3-tip {
+  line-height: 1;
+  font-weight: bold;
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.8);
+  color: #fff;
+  border-radius: 2px;
+}
+
+/* Creates a small triangle extender for the tooltip */
+.d3-tip:after {
+  box-sizing: border-box;
+  display: inline;
+  font-size: 10px;
+  width: 100%;
+  line-height: 1;
+  color: rgba(0, 0, 0, 0.8);
+  content: "\25BC";
+  position: absolute;
+  text-align: center;
+}
+
+/* Style northward tooltips differently */
+.d3-tip.n:after {
+  margin: -1px 0 0 0;
+  top: 100%;
+  left: 0;
+}
+</style>
+<body>
+<script src="src/d3.v3.js"></script>
+<script src="src/d3.tip.v0.6.3.js"></script>
+<script src="src/jQuery.js"></script>
+<script src="src/semantic.min.js"></script>
+<link type="text/css" rel="styleSheet"  href="semantic.min.css" />
+
+<script>
+function getIP(){
+  urlinfo=window.location.href; //获取当前页面的url
+  len=urlinfo.length;//获取url的长度
+  offset=urlinfo.indexOf("?")+1;//设置参数字符串开始的位置
+  newsidinfo=urlinfo.substr(offset,len)//取出参数字符串 这里会获得类似“id=1”这样的字符串
+  newsids=newsidinfo.split("&");//对获得的参数字符串按照“=”进行分割
+  
+  type=newsids[0].slice(newsids[0].indexOf("=")+1);//得到协议类型
+  ip=newsids[1].slice(newsids[1].indexOf("=")+1);//得到ip
+  return ip, type
+}
+</script>
+<script>
+$(document).ready(function(){
+  var margin = {top: 20, right: 50, bottom: 30, left: 20},
+      width = 1600 - margin.left - margin.right,
+      height = 160 - margin.top - margin.bottom;
+
+  ip = getIP()[1] // ip
+  protocol_type = getIP()[0] // 协议类型
+  
+  // 实现画图
+  console.log(ip)
+  if (getIP()){
+    // 堆叠图所在位置
+    stacked_file = "stacked_data/"+protocol_type+"/"+ip+".csv"
+    draw_stacked_chart(stacked_file)  // 画堆叠图
+    draw_label(); // 画标签
+    ///////////改文件
+    // 条形图所在位置
+    bar_file = "bar_data/"+protocol_type+"/des/"+ip+".csv"
+    draw_bar_chart(bar_file)
+  }
+
+  $('#src_button').click(function(){
+    // 条形图数据所在位置
+    bar_file = "bar_data/"+protocol_type+"/src/"+ip+".csv";
+    draw_bar_chart(bar_file)
+   })
+  $('#dst_button').click(function(){
+    // 条形图数据所在位置
+    bar_file = "bar_data/"+protocol_type+"/des/"+ip+".csv";
+    draw_bar_chart(bar_file)
+   })
+
+
+});
+
+
+function draw_label(){
+  div_button = d3.select("body").append("div").attr("id", "xxx")
+  div_button = div_button.append("div").attr("id", "yyy")
+  div_button.append("button").attr("class", "ui gray button").attr("id", "src_button").text("As Src")
+  div_button.append("button").attr("class", "ui gray button").attr("id", "dst_button").text("As Dst")
+}
+
+
+
+/*堆叠图*/
+
+function draw_stacked_chart(file_path){
+
+
+  var link_type = ["uplink_length", "downlink_length"];
+
+  var parseDate = d3.time.format("%d_%H").parse;
+
+  var margin = {top: 20, right: 50, bottom: 30, left: 20},
+        width = 1600 - margin.left - margin.right,
+        height = 160 - margin.top - margin.bottom;
+
+  var x = d3.scale.ordinal()
+      .rangeRoundBands([0, width], .1)
+
+  var y = d3.scale.linear()
+      .rangeRound([height, 0]);
+
+  var z = d3.scale.category10();
+
+  var xAxis = d3.svg.axis()
+      .scale(x)
+      .orient("bottom")
+      .tickFormat(d3.time.format("%m-%d"));
+
+  var yAxis = d3.svg.axis()
+      .scale(y)
+      .orient("left");
+
+  var discri_svg = d3.select("body")
+          .append("svg")
+    
+
+  var svg = d3.select("body").append("svg")
+      .attr("width", width + margin.left + margin.right)
+      .attr("height", height + margin.top + margin.bottom)
+      .append("g")
+      .attr("transform", "translate(" + 2*margin.left + "," + margin.top + ")");
+
+
+  d3.csv(file_path, type, function(error, links_data) {
+    if (error) throw(error)
+
+    //console.log(links_data);
+
+    discri_svg.attr("width", link_type.length * 150)
+      .attr("height", 30)
+      .style("font", "10px sans-serif")
+        .style("margin-left", `${margin.left}px`)
+        .style("display", "block")
+        .attr("text-anchor", "middle");
+
+    discri_g = discri_svg.append("g")
+      .selectAll("g")
+      // 显式描述
+      .data(Object.getOwnPropertyNames(links_data[0]).slice(2,4))
+      .enter().append("g")
+        .attr("transform", (d, i) => `translate(${i * 150},0)`);
+
+    discri_g.append("rect")
+        .attr("width", 130)
+        .attr("height", 50)
+        .attr("fill", (d,i) => z(i));
+
+    discri_g.append("text")
+        .attr("x", 60)
+        .attr("y", 10)
+        .attr("dy", ".71em")
+        .style("font", "16px sans-serif")
+        .style("color", "white")
+        .text(function(d){return d;});
+
+
+    var layers = d3.layout.stack()(link_type.map(function(c) {
+      return links_data.map(function(d) {
+        return {x: d.day_time, y: d[c]};
+      });
+    }));
+
+    x.domain(layers[0].map(function(d) { return d.x; }));
+    y.domain([0, d3.max(layers[layers.length - 1], function(d) { return d.y0 + d.y; })]).nice();
+
+
+
+    var layer = svg.selectAll(".layer")
+        .data(layers)
+      .enter().append("g")
+        .attr("class", "layer")
+        .style("fill", function(d, i) {return z(i); });
+
+
+    svg.append("g")
+      .attr("class", "y axis")
+      .attr("transform", "translate(15," + 0 + ")")
+      .call(yAxis.ticks(3))
+      .append("text")
+      .attr("x", -20)
+      .attr("y", -15)
+      .attr("dy", ".71em")
+      .style("font-size", "15px")
+      .style("text-anchor", "right")
+      .text("Length");
+
+      
+    layer.selectAll("rect")
+        .data(function(d) { return d; })
+      .enter().append("rect")
+        .attr("x", function(d) { return x(d.x); })
+        .attr("y", function(d) { return y(d.y + d.y0); })
+        .attr("height", function(d) { return y(d.y0) - y(d.y + d.y0); })
+        .attr("width", x.rangeBand() - 1)
+    
+    for (var i=0; i < 6;i++){
+        svg.append("line")
+            .attr("x1", width*(i+1)/7)
+            .attr("y2", margin.top)
+            .attr("x2", width*(i+1)/7)
+            .attr("y2", height)
+            .attr("stroke", "gray")
+            .attr('stroke-width', '0.5')
+    }
+  });
+  function type(d) {
+    d.day_time = parseDate(d.day_time);
+    //console.log(d.date)
+    link_type.forEach(function(c) { d[c] = +d[c]; });
+    return d;
+  }
+}
+
+
+/*画柱状图*/
+function draw_bar_chart(file_name){
+
+var parseDate = d3.time.format("%d_%H").parse;
+
+var margin = {top: 20, right: 50, bottom: 30, left: 20},
+      width = 1600 - margin.left - margin.right,
+      height = 160 - margin.top - margin.bottom;
+$('svg#bar_svg').remove();
+var svg2 = d3.select("body").append("svg")
+    .attr("id", "bar_svg")
+    .attr("width", width + margin.left + margin.right)
+    .attr("height", height + margin.top + margin.bottom)
+  .append("g")
+    .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+var x2 = d3.scale.ordinal()
+    .rangeRoundBands([0, width], .1);
+
+var y2 = d3.scale.linear()
+    .range([height, 0]);
+
+var xAxis2 = d3.svg.axis()
+    .scale(x2)
+    .orient("bottom");
+
+var yAxis2 = d3.svg.axis()
+    .scale(y2)
+    .orient("left")
+    .ticks(3)
+
+var tip = d3.tip()
+  .attr('class', 'd3-tip')
+  .offset([-10, 0])
+  .html(function(d) {
+    return "<strong>Amount:</strong> <span style='color:red'>" + Number(d.in_degree) + "</span>";
+  })
+
+
+svg2.call(tip);
+
+d3.csv(file_name, type2, function(error, data) {
+
+  x2.domain(data.map(function(d) { return d.day_time; }));
+  y2.domain([0, d3.max(data, function(d) { return Number(d.in_degree); })]);
+
+  svg2.append("g")
+      .attr("class", "y axis")
+      .call(yAxis2)
+      .append("text")
+//      .attr("transform", "rotate(-90)")
+      .attr("x", -20)
+      .attr("y", -15)
+      .attr("dy", ".71em")
+      .style("font-size", "15px")
+      .style("text-anchor", "right")
+      .text("Total Connections");
+
+  svg2.selectAll(".bar")
+      .data(data)
+      .enter().append("rect")
+      .attr("class", "bar")
+      .attr("x", function(d) { return x2(d.day_time); })
+      .attr("width", x2.rangeBand())
+      .attr("y", function(d) { return y2(Number(d.in_degree)); })
+      .attr("height", function(d) {return height - y2(Number(d.in_degree)); })
+      .on('mouseover', tip.show)
+      .on('mouseout', tip.hide)
+
+    for (var i=0; i < 6;i++){
+        svg2.append("line")
+            .attr("x1", (i+1)*(width/7)+1)
+            .attr("y2", margin.top)
+            .attr("x2", (i+1)*(width/7)+1)
+            .attr("y2", height)
+            .attr("stroke", "gray")
+            .attr('stroke-width', '0.5')
+    }
+
+
+});
+    function type2(d) {
+
+        d.day_time = parseDate(d.day_time);
+        //link_type.forEach(function(c) { d[c] = +d[c]; });
+        return d;
+    }
+}
+
+
+
+</script>
+
+
