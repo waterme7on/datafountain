@@ -1,0 +1,4 @@
+src_ip,user,info
+10.49.212.206,lss6,331 User root OK. Password required
+10.49.212.206,lss6,530 Login authentication failed
+10.49.212.206,lss6,530 Logout.
