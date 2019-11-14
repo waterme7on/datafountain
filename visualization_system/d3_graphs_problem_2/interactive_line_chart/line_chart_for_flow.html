@@ -1,0 +1,316 @@
+<html>
+    
+<!--
+    References:
+    "http://bl.ocks.org/benjchristensen/2657838"
+    "http://bl.ocks.org/benjchristensen/2580640"
+    "http://bl.ocks.org/1166403"
+    "https://gist.github.com/benjchristensen/2657838"
+-->
+
+
+<head>
+    <title>Line graph over time with multiple data points using SVG and d3.js</title>
+    <script src="../src_scripts/d3.v4.js"></script>
+    <script src="../src_scripts/html2canvas.js"></script>
+    <!-- <script src="../src_scripts/canvas2image.js"></script> -->
+    <script src="../src_scripts/jquery.js"></script>
+    <script src="https://d3js.org/d3-time.v1.min.js"></script>
+    <script src="https://d3js.org/d3-time-format.v2.min.js"></script>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/numeral.js/2.0.6/numeral.min.js"></script>
+
+
+    <style>
+        body {
+            font-family: "Helvetica Neue", Helvetica;
+        }
+
+        /* tell the SVG path to be a thin blue line without any area fill */
+        path {
+            stroke-width: 1;
+            fill: none;
+        }
+
+        .data1 {
+            stroke: green;
+        }
+
+        .data2 {
+            stroke: orange;
+        }
+
+        .axis {
+            shape-rendering: crispEdges;
+        }
+
+        .x.axis line {
+            stroke: lightgrey;
+        }
+
+        .x.axis .minor {
+            stroke-opacity: .5;
+        }
+
+        .x.axis path {
+            display: none;
+        }
+
+        .x.axis text {
+            font-size: 10px;
+        }
+
+        .y.axis line,
+        .y.axis path {
+            fill: none;
+            stroke: #000;
+        }
+
+        .y.axis text {
+            font-size: 12px;
+        }
+        .y.axisLeft text {
+            fill: green;
+        }
+        .y.axisRight text {
+            fill: orange;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="graph" class="aGraph" style="position:absolute;top:0px;left:0; float:left;"></div>
+    <script>
+        draw_line_graph()
+
+        function draw_line_graph() {
+			// data file
+            file_name="../ip_length_by_hour/10.24.64.39.csv"
+            // file_name = "test.csv"
+
+            d3.csv(file_name, function (error, data) {
+                // define dimensions of graph
+                var m = [80, 80, 80, 80]; // margins
+                var w = 1200 - m[1] - m[3];	// width
+                var h = 300 - m[0] - m[2]; // height
+                
+
+                if (error) throw(error);
+                console.log(data)
+                // draw the line graph
+                return_val = draw(data)
+                y1 = return_val[0]
+                y2 = return_val[1]
+                graph = return_val[2]
+
+                var origin_path_data1 = $("path.data1").attr("d")
+                var origin_path_data2 = $("path.data2").attr("d")
+                // toString();
+
+                // interactive hover line
+                var hoverContainer, hoverLine, hoverLineXOffset, hoverLineYOffset, hoverLineGroup;
+                hoverLineGroup = graph.append("svg:g").attr("class", "hover-line");
+
+                // add the line to the group
+                hoverLine = hoverLineGroup
+                    .append("line")
+                    .attr("x1", 100)
+                    .attr("y1", -10)
+                    .attr("x2", 100) // vertical line so same value on each
+                    .attr("y2", h+30) // top to bottom	
+                    .attr("id", "hover")
+                    .attr("stroke", "black")
+                    .attr("stroke-width", 0.5);
+
+                // hide it by default
+                hoverLine.style("display", "none");
+                // container = document.querySelector('#graph');
+                container = $("#graph")
+                // console.log(container)
+                hoverLineXOffset = m[3] + $(container).offset().left;
+                hoverLineYOffset = m[0] + $(container).offset().top;
+
+                d3.select(".hover-line").append("text")
+                    .attr("x", 0)
+                    .attr("y", -20)
+                    .attr("dy", ".41em")
+                    .attr("id", "hover_text1")
+                    .attr("stroke", "gray")
+                    .attr("stroke-width", 0.3)
+                    // .style("text-anchor", "middle")
+                    .style("font-size", "12px")
+                d3.select(".hover-line").append("text")
+                    .attr("x", 0)
+                    .attr("y", -10)
+                    .attr("dy", ".41em")
+                    .attr("id", "hover_text2")
+                    .attr("stroke", "gray")
+                    .attr("stroke-width", 0.3)
+                    // .style("text-anchor", "middle")
+                    .style("font-size", "12px")
+
+                var mouseX = event.pageX - hoverLineXOffset;
+                var mouseY = event.pageY - hoverLineYOffset;
+
+                $(container).mousemove(function (event) {
+
+                    handleMouseOverGraph(y1,y2,event);
+                })
+                $(container).mouseleave(function (event) {
+                    handleMouseOutGraph(y1,y2,event);
+                })
+
+                var handleMouseOutGraph = function (event) {
+                    // hide the hover-line
+                    hoverLine.style("display", "none");
+                    d3.select("path.data1").attr("d", origin_path_data1)
+                    d3.select("path.data2").attr("d", origin_path_data2)
+                    d3.select("#hover_text1").text("")
+                    d3.select("#hover_text2").text("")
+                }
+
+                var handleMouseOverGraph = function (y1,y2,event) {
+                    var mouseX = event.pageX - hoverLineXOffset;
+                    var mouseY = event.pageY - hoverLineYOffset;
+
+                    //debug("MouseOver graph [" + containerId + "] => x: " + mouseX + " y: " + mouseY + "  height: " + h + " event.clientY: " + event.clientY + " offsetY: " + event.offsetY + " pageY: " + event.pageY + " hoverLineYOffset: " + hoverLineYOffset)
+                    if (mouseX >= 0 && mouseX <= w && mouseY >= 0 && mouseY <= h) {
+                        // show the hover line
+                        hoverLine.style("display", null);
+                        // set position of hoverLine
+                        hoverLine.attr("x1", mouseX).attr("x2", mouseX)
+                        // draw new path1
+                        origin_path = (origin_path_data1).split(/M|L/)
+                        new_path_d = "M"+ origin_path[1]
+                        for (var i = 2; i < origin_path.length; i++){
+                            if (parseFloat(origin_path[i].split(",")[0]) > mouseX){
+                                oy = parseFloat(origin_path[i].split(",")[1])
+                                // console.log(y1.invert(oy))
+                                d3.select("#hover_text1")
+                                    .text("send_flow:"+numeral(parseInt(y1.invert(oy))).format("0,0"))
+                                    // .attr("x", 2+mouseX)
+                                break;
+                            }
+                            new_path_d += "L"+ origin_path[i]
+                        }
+                        // console.log(new_path_d)
+                        d3.select("path.data1").attr("d", new_path_d)
+                        // draw new path2
+                        origin_path = (origin_path_data2).split(/M|L/)
+                        new_path_d = "M" + origin_path[1]
+                        for (var i = 2; i < origin_path.length; i++) {
+                            if (parseFloat(origin_path[i].split(",")[0]) > mouseX) {
+                                oy = parseFloat(origin_path[i].split(",")[1])
+                                d3.select("#hover_text2")
+                                    .text("receive_flow:" + numeral(parseInt(y1.invert(oy))).format("0,0")
+                                    )
+                                // console.log(numeral("10000").format("0,0"))
+                                    // .attr("x", 2+mouseX)
+                                break;
+                            }
+                            new_path_d += "L" + origin_path[i]
+                        }
+                        // console.log(new_path_d)
+                        d3.select("path.data2").attr("d", new_path_d)
+
+                    } else {
+                        // proactively act as if we've left the area since we're out of the bounds we want
+                        handleMouseOutGraph(event)
+                    }
+                }
+
+            })
+
+
+            function cmp_time(a, b) {
+                var parseDate = d3.timeParse("%m_%d_%H")
+                return parseDate(a.day_time) - parseDate(b.day_time);
+            }
+
+            function draw(data){
+                // var parseDate = d3.time.format("%Y-%m-%d %H:%M:%S.%L").parse
+                var parseDate = d3.timeParse("%m_%d_%H")
+                var startTime = parseDate("5_30_0")
+                var endTime = parseDate("6_14_0")
+                
+                // sort data by day_time
+                data.sort(cmp_time)
+
+                // // define dimensions of graph
+                var m = [80, 80, 80, 80]; // margins
+                var w = 1000 - m[1] - m[3];	// width
+                var h = 300 - m[0] - m[2]; // height
+
+                // X scale starts at epoch time 1335035400000, ends at 1335294600000 with 300s increments
+                var x = d3.scaleTime().domain([startTime, endTime]).range([0, w])
+                //x.tickFormat(d3.timeFormat("%m-%d"));
+                
+                // Y scale will fit values from 0-10 within pixels h-0 (Note the inverted domain for the y-scale: bigger is up!)
+                var y1 = d3.scaleLinear().domain([0, d3.max(data, function (d) { return parseInt(d.send_flow);   })]).range([h, 0]);
+                var y2 = d3.scaleLinear().domain([0, d3.max(data, function (d) { return parseInt(d.receive_flow); })]).range([h, 0]); 
+
+                // create a line function that can convert data[] into x and y points 
+                var line1 = d3.line()
+                    .x(function (d) {
+                        return x(parseDate(d.day_time));
+                    })
+                    .y(function (d) {
+                        return y1(parseInt(d.send_flow));
+                    })
+                var line2 = d3.line()
+                    // assign the X function to plot our line as we wish
+                    .x(function (d) {
+                        return x(parseDate(d.day_time));
+                    })
+                    .y(function (d) {
+                        return y2(parseInt(d.receive_flow));
+                    })
+
+                // Add an SVG element with the desired dimensions and margin.
+                var graph = d3.select("#graph").append("svg:svg")
+                    .attr("width", w + m[1] + m[3])
+                    .attr("height", h + m[0] + m[2])
+                    .append("svg:g")
+                    .attr("transform", "translate(" + 1.1*m[3] + "," + m[0] + ")");
+
+                // create xAxis
+                var xAxis = d3.axisBottom(x).tickSize(-h).ticks(14).tickFormat(d3.timeFormat("%b %d"));
+
+                // Add the x-axis.
+                graph.append("svg:g")
+                    .attr("class", "x axis")
+                    .attr("transform", "translate(0," + 1.1*h + ")")
+                    .call(xAxis);
+
+                // create left yAxis
+                var yAxisLeft = d3.axisLeft(y1).ticks(5)
+
+                // Add the y-axis to the left
+                graph.append("svg:g")
+                    .attr("class", "y axis axisLeft")
+                    .attr("transform", "translate(0,0)")
+                    .call(yAxisLeft);
+
+                // create right yAxis
+                var yAxisRight = d3.axisRight(y2).ticks(5)
+
+                // Add the y-axis to the right
+                graph.append("svg:g")
+                    .attr("class", "y axis axisRight")
+                    .attr("transform", "translate(" + (w) + ",0)")
+                    .call(yAxisRight);
+
+                // add lines
+                graph.append("svg:path").attr("d", line1(data)).attr("class", "data1");
+                graph.append("svg:path").attr("d", line2(data)).attr("class", "data2");
+                return new Array(y1,y2,graph);
+
+            }
+        }
+
+
+
+    </script>
+
+</body>
+
+</html>
