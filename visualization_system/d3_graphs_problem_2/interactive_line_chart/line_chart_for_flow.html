@@ -17,6 +17,8 @@
     <script src="../src_scripts/jquery.js"></script>
     <script src="https://d3js.org/d3-time.v1.min.js"></script>
     <script src="https://d3js.org/d3-time-format.v2.min.js"></script>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/numeral.js/2.0.6/numeral.min.js"></script>
+
 
     <style>
         body {
@@ -184,7 +186,7 @@
                                 oy = parseFloat(origin_path[i].split(",")[1])
                                 // console.log(y1.invert(oy))
                                 d3.select("#hover_text1")
-                                    .text("send_flow:"+parseInt(y1.invert(oy)))
+                                    .text("send_flow:"+numeral(parseInt(y1.invert(oy))).format("0,0"))
                                     // .attr("x", 2+mouseX)
                                 break;
                             }
@@ -199,7 +201,9 @@
                             if (parseFloat(origin_path[i].split(",")[0]) > mouseX) {
                                 oy = parseFloat(origin_path[i].split(",")[1])
                                 d3.select("#hover_text2")
-                                    .text("receive_flow:" + parseInt(y1.invert(oy)))
+                                    .text("receive_flow:" + numeral(parseInt(y1.invert(oy))).format("0,0")
+                                    )
+                                // console.log(numeral("10000").format("0,0"))
                                     // .attr("x", 2+mouseX)
                                 break;
                             }
