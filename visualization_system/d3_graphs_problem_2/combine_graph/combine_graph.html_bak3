@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="en">
+<!-- 
+    ref
+    "http://www.popodv.com/dv/2f32a31539099793251.html"
+
+-->
+
+
+<head>
+    <meta charset="utf-8">
+    <title> dashboard </title>
+
+    <script src="../src_scripts/d3.v4.js"></script>
+    <!-- <script src="../src_scripts/jquery.js"></script> -->
+    <script src="../src_scripts/html2canvas.js"></script>
+    <script src="../src_scripts/d3-time-format.v2.min.js"></script>
+    <script src="../src_scripts/d3-time.v1.min.js"></script>
+    <script type="text/javascript" src="../src_scripts/d3-ForceEdgeBundling.js"></script>
+    <script src="../src_scripts/numeral.min.js"></script>
+    <!-- <script src="https://unpkg.com/bootstrap-table@1.15.5/dist/bootstrap-table.min.js"></script>
+    <script src="https://unpkg.com/bootstrap-table@1.15.5/dist/extensions/filter-control/bootstrap-table-filter-control.min.js"></script>
+
+    <link href="https://unpkg.com/bootstrap-table@1.15.5/dist/bootstrap-table.min.css" rel="stylesheet"> -->
+    <link type="text/css" rel="styleSheet" href="../src_scripts/semantic.min.css" />
+    <style>
+        body {
+            font-family: "Helvetica Neue", Helvetica;
+        }
+    
+        /* tell the SVG path to be a thin blue line without any area fill */
+        path {
+            stroke-width: 1;
+            fill: none;
+        }
+    
+        .data1 {
+            stroke: green;
+        }
+    
+        .data2 {
+            stroke: orange;
+        }
+    
+        .axis {
+            shape-rendering: crispEdges;
+        }
+    
+        .x.axis line {
+            stroke: lightgrey;
+        }
+    
+        .x.axis .minor {
+            stroke-opacity: .5;
+        }
+    
+        .x.axis path {
+            display: none;
+        }
+    
+        .x.axis text {
+            font-size: 10px;
+        }
+    
+        .y.axis line,
+        .y.axis path {
+            fill: none;
+            stroke: #000;
+        }
+    
+        .y.axis text {
+            font-size: 12px;
+        }
+    
+        .y.axisLeft text {
+            fill: green;
+        }
+    
+        .y.axisRight text {
+            fill: orange;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="file_input_div">
+        <div class="ui input">
+            <input id="file_input" type="text" name="fname" placeholder="文件名(.csv格式)">
+            <button class="ui gray button" id="input_button">导入</button>
+        </div>
+    </div>
+    
+    <div id="graph" class="line_graph">
+        
+    </div>
+
+    <div id="tooltip">
+
+    </div>
+    
+    <div id="svg">
+    </div>
+
+    <div>
+        <table
+        id="table"
+        data-toggle="table"
+        data-url="\interactive_line_chart\test.json">
+        <thead>
+            <tr>
+            <th data-field="dst">des</th>
+            <th data-field="src">src</th>
+            <th data-field="day_time">time</th>
+            <th data-field="num">num</th>
+            </tr>
+        </thead>
+        </table>
+    </div>
+
+    <!-- <script src="https://code.jquery.com/jquery-3.3.1.min.js"
+        integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8=" crossorigin="anonymous"></script> -->
+        <script src="../src_scripts/jquery-3.3.1.min.js"></script>
+        <script src="../src_scripts/semantic.min.js"></script>
+        
+        <script src="../src_scripts/popper.min.js"></script>
+        <script src="../src_scripts/bootstrap.min.js"></script>
+        <script src="../src_scripts/bootstrap-table.min.js"></script>
+    <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js" integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1" crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous"></script>
+    <script src="https://unpkg.com/bootstrap-table@1.15.5/dist/bootstrap-table.min.js"></script> -->
+</body>
+
+</html>
+
+
+
+
+
+
+
+
+
+    <script>
+        $(document).ready( function () {
+            var ip = "10.49.253.233"
+            var force_file_name = "../force_data_json/10.49.253.233.json"
+            // var force_file_name = "./10.49.253.233.json"
+            draw_force_graph(force_file_name, 0, ip)
+
+            var line_file_name = "../force_data_json/10.49.253.233.csv"
+            draw_line_graph(line_file_name, force_file_name)
+
+            $("#ip_label").text(ip)
+            
+            $('#input_button').click(function () {
+                input_ip = $('#file_input').val()
+                line_file_name = "../ip_length_by_hour/" + input_ip + ".csv"
+                $("#ip_label").text(input_ip)
+                console.log(line_file_name)
+                // draw_line_graph(line_file_name, force_file_name, input_ip);
+            })
+        })
+    </script>
+
+    <script>
+        function draw_force_graph(file_name, time, ip){
+            $('#table').bootstrapTable();
+            $("#svg").empty();
+            d3.json(file_name, function (json) {
+                var width = 1200;
+                var height = 600;
+                // heat map colorset
+                // var colors = ["#5e4fa2", "#3288bd", "#66c2a5", "#abdda4", "#e6f598", "#ffffbf", "#fee08b", "#fdae61", "#f46d43", "#d53e4f", "#9e0142"];
+                var colors = ["#0055FF", "#00FFFF", "#008000", "#FFFF00", "#FF0000"]
+                
+                //Transform the XML data into a proper format used by the algorithm
+                // var raw_edges = json.documentElement.getElementsByTagName("edge");
+                // var raw_nodes = json.documentElement.getElementsByTagName("node");
+                var raw_nodes = json["nodes"]
+                var raw_edges = json["links"]
+
+                var eedges = [];
+                var nnodes = {};
+                var min_x = Number.MAX_VALUE;
+                var max_x = 0;
+                var min_y = Number.MAX_VALUE;
+                var max_y = 0;
+
+                for (var i = 0; i < raw_nodes.length; i++) {
+                    var key = raw_nodes[i].id;
+                    var x = raw_nodes[i].x;
+                    var y = raw_nodes[i].y;
+                    var name = raw_nodes[i].ip;
+
+                    nnodes[key] = {
+                        'x': x,
+                        'y': y,
+                        'ip': raw_nodes[i].ip
+                    };
+                    min_x = Math.min(min_x, x);
+                    max_x = Math.max(max_x, x);
+                    min_y = Math.min(min_y, y);
+                    max_y = Math.max(max_y, y);
+                }
+
+                var min_val = Number.MAX_VALUE;
+                var max_val = 0;
+                var parseDate = d3.timeParse("%m_%d_%H")
+
+                var timeFormater = d3.timeFormat("%m_%d_%H")
+                var parseDate = d3.timeParse("%m_%d_%H");
+                if (time != 0)
+                    time = parseDate(timeFormater(time))
+                for (var i = 0; i < raw_edges.length; i++) {
+                    // if (time == 0 || (parseDate(raw_edges[i].time) == (time)) ){
+                    eedges.push({
+                        'source': raw_edges[i].source,
+                        'target': raw_edges[i].target,
+                        'value': raw_edges[i].value,
+                        'time': raw_edges[i].time
+                    });
+                    // }
+                    min_val = Math.min(min_val, raw_edges[i].value);
+                    max_val = Math.max(max_val, raw_edges[i].value);
+
+                }
+
+
+                var colorScale = d3.scaleQuantize()
+                    .range(colors)
+                    .domain([min_val, max_val]);
+
+                console.log('Nodes', nnodes);
+                console.log('Edges', eedges);
+
+                var new_scale_x = d3.scaleLinear().domain([min_x, max_x]).range([1000, 50]);
+                var new_scale_y = d3.scaleLinear().domain([min_y, max_y]).range([500, 0]);
+                for (var i = 0; i < raw_nodes.length; i++) {
+                    nnodes[i].x = new_scale_x(nnodes[i].x);
+                    nnodes[i].y = new_scale_y(nnodes[i].y);
+                }
+
+                //Run the FDEB algorithm using default values on the data
+                var fbundling = d3.ForceEdgeBundling().nodes(nnodes).edges(eedges);
+                var results = fbundling();
+
+                var svg = d3.select("#svg").append("svg")
+                    .attr("class", "force_graph_svg")
+                    .attr("width", width)
+                    .attr("height", height);
+
+                svg = svg.append('g');
+                svg.append('rect').attr({
+                    'fill': '#ffffff',
+                    'width': svg.width,
+                    'height': svg.height
+                });
+
+                var d3line = d3.line()
+                    .x(function (d) {
+                        return d.x;
+                    })
+                    .y(function (d) {
+                        return d.y;
+                    })
+                function gettime(result){
+                    var getEdges = function (element) {
+                        return element.source == result[0].ip && element.target == result[result.length-1].ip
+                    }
+                    edge_time = (raw_edges.find(function (element) {
+                        sourceip = raw_nodes[element.source].ip
+                        targetip = raw_nodes[element.target].ip
+                        return sourceip == result[0].ip && targetip == result[result.length - 1].ip
+                    }))
+                    return (edge_time)
+                }
+
+                 var tooltip = d3.select("#tooltip")
+                    .append("div")
+                    .style("opacity", 0)
+                    .attr("class", "tooltip")
+                    // .style("background-color", "white")
+                    // .style("border", "solid")
+                    // .style("border-width", "1px")
+                    // .style("border-radius", "5px")
+                    .style("padding", "10px")
+                    // .style("width", "50")
+                    // .style("height", "50")
+
+                var mouseover = function (d) {
+                    tooltip
+                    .style("opacity", 1)
+                }
+                
+                var mousemove = function (d) {
+                    // console.log(raw_nodes[gettime(d).source].ip)
+                    // console.log(d3.mouse(this))
+                    tooltip
+                        .html("source: " + (raw_nodes[gettime(d).source].ip) + 
+                            " destination: " + (raw_nodes[gettime(d).target].ip) +
+                            " num: " + (gettime(d).value) +
+                            " time: " + (gettime(d).time))
+                        .style("left", (d3.mouse(this)[0]) + "px") // It is important to put the +90: other wise the tooltip is exactly where the point is an it creates a weird effect
+                        .style("top", (d3.mouse(this)[1]) + "px")
+                }
+
+                // A function that change this tooltip when the leaves a point: just need to set opacity to 0 again
+                var mouseleave = function (d) {
+                    tooltip
+                        .transition()
+                        .duration(200)
+                        .style("opacity", 0)
+                }
+
+
+                //plot the data
+                svg.selectAll("path")
+                    .data(results)
+                    .enter()
+                    .append("path")
+                        .attr("d", function (d) {;return d3line(d) }) 
+                        .attr("fill", "none")
+                        .style("stroke-width", 3)
+                        .style("stroke", function (d) { return colorScale(gettime(d).value) })
+                        .style('stroke-opacity', 0.1)
+                        .attr("class", "force_path")
+                        .attr("id", function (d){return timeFormater(parseDate(gettime(d).time))})
+                        .attr("source", function (d) {return (raw_nodes[gettime(d).source].ip)})
+                        .attr("target", function (d) {return (raw_nodes[gettime(d).target].ip)})
+                        .attr("value",function (d) {return gettime(d).value})
+                    .on("mouseover", mouseover)
+                    .on("mousemove", mousemove)
+                    // .on("mouseleave", mouseleave)
+
+                // for (var i = 0; i < results.length; i++) {
+                //     svg.append("path")
+                //             .attr("d", d3line(results[i]))
+                //             .style("stroke-width", 1)
+                //             .style("stroke", colorScale(gettime(results[i]).value))
+                //             .attr("fill", "none")
+                //             .style('stroke-opacity', 0.5)
+                //             .attr("class", "force_path")
+                //             .attr("id", timeFormater(parseDate(gettime(results[i]).time)))
+                //             .attr("source", (raw_nodes[gettime(results[i]).source].ip))
+                //             .attr("target", (raw_nodes[gettime(results[i]).target].ip))
+                //         .on("mouseover", function () {
+
+                //             tooltip
+                //                 .style("opacity", 1)
+                //         })
+                //         .on("mousemove", function () {
+                //             console.log(results[i])
+                //             tooltip
+                //                 .html("source: " + (raw_nodes[gettime(results[i]).source].ip) + "destination: " + (raw_nodes[gettime(results[i]).target].ip))
+                //                 .style("left", (d3.mouse(this)[0] + 90) + "px") // It is important to put the +90: other wise the tooltip is exactly where the point is an it creates a weird effect
+                //                 .style("top", (d3.mouse(this)[1]) + "px")
+                //         })
+                //         .on("mouseleave", function () {
+                //             tooltip
+                //                 .transition()
+                //                 .duration(200)
+                //                 .style("opacity", 0)
+                //         })
+
+                //         // .attr("value", gettime(results[i]).value)
+                // }
+
+                //draw nodes
+                svg.selectAll('.node')
+                    .data(d3.entries(nnodes))
+                    .enter()
+                    .append('circle')
+                    .classed('node', true)
+                    .attr("r", 1)
+                    .attr("fill", "black")
+                    .attr("id", function (d) {
+                        // console.log(d)
+                        return d.value.ip
+                    })
+                    .attr('cx', function (d) {
+                        return d.value.x;
+                    })
+                    .attr('cy', function (d) {
+                        return d.value.y;
+                    });
+                
+                // console.log("circle#"+ip+".node")
+                // center_node = ("circle#" + ip + ".node")
+                // d3.select(center_node)
+                //     .attr("r", 6)
+                $("[id='" + ip + "']").attr("r", 10)
+                // d3.select(center_node)
+                //     .append("g")
+                //     .append("text")
+                //     // .attr("x", 0)
+                //     // .attr("y", 0)
+                //     // .attr("dy", ".41em")
+                //     // .attr("id", "central_node")
+                //     // .attr("fill", "gray")
+                //     // .attr("stroke", "gray")
+                //     // .attr("stroke-width", 0.3)
+                //     .style("font-size", "12px")
+                //     .text("10.49.253.233")
+                })
+        }
+    </script>
+    <script>
+        // draw_line_graph()
+        function draw_line_graph(file_name, force_file_name) {
+            $("#line_graph_svg").remove();
+            d3.csv(file_name, function (error, data) {
+                // define dimensions of graph
+                var m = [80, 80, 80, 80]; // margins
+                var w = 1200 - m[1] - m[3];	// width
+                var h = 250 - m[0] - m[2]; // height
+
+
+                if (error) throw (error);
+                // sort data by day_time
+                data.sort(cmp_time)
+                console.log(data)
+
+                // draw the line graph
+                return_val = draw(data)
+                x = return_val[0]
+                y1 = return_val[1]
+                y2 = return_val[2]
+                graph = return_val[3]
+
+                var origin_path_data1 = $("path.data1").attr("d")
+                var origin_path_data2 = $("path.data2").attr("d")
+
+                // interactive hover line
+                var hoverContainer, hoverLine, hoverLineXOffset, hoverLineYOffset, hoverLineGroup;
+                hoverLineGroup = graph.append("svg:g").attr("class", "hover-line");
+
+                // add the line to the group
+                hoverLine = hoverLineGroup
+                    .append("line")
+                    .attr("x1", 100)
+                    .attr("y1", -10)
+                    .attr("x2", 100) // vertical line so same value on each
+                    .attr("y2", h + 30) // top to bottom	
+                    .attr("id", "hover")
+                    .attr("stroke", "black")
+                    .attr("stroke-width", 0.5);
+
+                // hide it by default
+                hoverLine.style("display", "none");
+                // container = document.querySelector('#graph');
+                container = $("#graph")
+                // console.log(container)
+                hoverLineXOffset = m[3] + $(container).offset().left;
+                hoverLineYOffset = m[0] + $(container).offset().top;
+
+                d3.select(".hover-line").append("text")
+                    .attr("x", 10)
+                    .attr("y", -20)
+                    .attr("dy", ".41em")
+                    .attr("id", "hover_text1")
+                    .attr("fill", "gray")
+                    .attr("stroke", "gray")
+                    .attr("stroke-width", 0.3)
+                    // .style("text-anchor", "middle")
+                    .style("font-size", "12px")
+                d3.select(".hover-line").append("text")
+                    .attr("x", 10)
+                    .attr("y", -10)
+                    .attr("dy", ".41em")
+                    .attr("id", "hover_text2")
+                    .attr("fill", "gray")
+                    .attr("stroke", "gray")
+                    .attr("stroke-width", 0.3)
+                    // .style("text-anchor", "middle")
+                    .style("font-size", "12px")
+                d3.select(".hover-line").append("text")
+                    .attr("x", 10)
+                    .attr("y", -30)
+                    .attr("dy", ".41em")
+                    .attr("id", "hover_text3_time")
+                    .attr("fill", "gray")
+                    .attr("stroke", "gray")
+                    .attr("stroke-width", 0.3)
+                    .style("font-size", "12px")
+
+                // var mouseX = event.pageX - hoverLineXOffset;
+                // var mouseY = event.pageY - hoverLineYOffset;
+
+                $(container).mousedown(function (event) {
+                    handleMouseOverGraph(x, y1, y2, event);
+                })
+                // $(container).mouseup(function (event) {
+                //     handleMouseOutGraph(y1, y2, event);
+                // })
+
+                var handleMouseOutGraph = function (event) {
+                    // hide the hover-line
+                    hoverLine.style("display", "none");
+                    d3.select("path.data1").attr("d", origin_path_data1)
+                    d3.select("path.data2").attr("d", origin_path_data2)
+                    d3.select("#hover_text1").text("")
+                    d3.select("#hover_text2").text("")
+                    d3.select("#hover_text3_time").text("")
+                    $("path.force_path").show()
+
+                }
+
+                // var parseDate = d3.timeParse("%m_%d_%H")
+                // var timeFormater = d3.timeFormat("%m_%d_%H")
+                var handleMouseOverGraph = function (x, y1, y2, event) {
+                    var mouseX = event.pageX - hoverLineXOffset;
+                    var mouseY = event.pageY - hoverLineYOffset;
+                    //debug("MouseOver graph [" + containerId + "] => x: " + mouseX + " y: " + mouseY + "  height: " + h + " event.clientY: " + event.clientY + " offsetY: " + event.offsetY + " pageY: " + event.pageY + " hoverLineYOffset: " + hoverLineYOffset)
+                    if (mouseX >= 0 && mouseX <= w && mouseY >= 0 && mouseY <= h) {
+                        // show the hover line
+                        hoverLine.style("display", null);
+                        // set position of hoverLine
+                        hoverLine.attr("x1", mouseX).attr("x2", mouseX)
+                        // draw new path1
+                        origin_path = (origin_path_data1).split(/M|L/)
+                        new_path_d = "M" + origin_path[1]
+                        for (var i = 2; i < origin_path.length; i++) {
+                            if (parseFloat(origin_path[i].split(",")[0]) > mouseX) {
+                                oy = parseFloat(origin_path[i - 1].split(",")[1])
+                                d3.select("#hover_text1")
+                                    .text("send_flow:" + numeral(parseInt(y1.invert(oy))).format("0,0"))
+                                // .attr("x", 2+mouseX)
+                                break;
+                            }
+                            new_path_d += "L" + origin_path[i]
+                        }
+                        d3.select("path.data1").attr("d", new_path_d)
+                        // draw new path2
+                        origin_path = (origin_path_data2).split(/M|L/)
+                        new_path_d = "M" + origin_path[1]
+                        for (var i = 2; i < origin_path.length; i++) {
+                            if (parseFloat(origin_path[i].split(",")[0]) > mouseX) {
+                                oy = parseFloat(origin_path[i - 1].split(",")[1])
+                                d3.select("#hover_text2")
+                                    .text("receive_flow:" + numeral(parseInt(y1.invert(oy))).format("0,0")
+                                    )
+                                break;
+                            }
+                            new_path_d += "L" + origin_path[i]
+                        }
+                        // display current time
+                        d3.select("#hover_text3_time").text(d3.timeFormat("%b %d %H")(x.invert(mouseX)))
+                        // d3.select("#hover_text3_time").text("")
+                        d3.select("path.data2").attr("d", new_path_d)
+                        
+                        var mouseTime = d3.timeFormat("%m_%d_%H")(x.invert(mouseX))
+                        $("path.force_path").hide()
+                        $("path#" + mouseTime).show(500)
+                        var $table = $("#table")
+                        $table.bootstrapTable('filterBy',{
+                            "day_time": in_time(mouseTime)
+                        })
+                        // console.log($("#"+mouseTime))
+
+                    } else {
+                        // proactively act as if we've left the area since we're out of the bounds we want
+                        // handleMouseOutGraph(event)
+                        var $table = $("#table")
+                        $table.bootstrapTable('filterBy')
+                    }
+                }
+
+            })
+            function in_time(a) {
+                return [a];
+            }
+            function cmp_time(a, b) {
+                var parseDate = d3.timeParse("%m_%d_%H")
+                return parseDate(a.day_time) - parseDate(b.day_time);
+            }
+
+            function draw(data) {
+                // var parseDate = d3.time.format("%Y-%m-%d %H:%M:%S.%L").parse
+                var parseDate = d3.timeParse("%m_%d_%H")
+                var startTime = parseDate("5_30_0")
+                var endTime = parseDate("6_14_0")
+
+                // // define dimensions of graph
+                var m = [80, 80, 80, 80]; // margins
+                var w = 1000 - m[1] - m[3];	// width
+                var h = 250 - m[0] - m[2]; // height
+
+                // X scale starts at epoch time 1335035400000, ends at 1335294600000 with 300s increments
+                var x = d3.scaleTime().domain([startTime, endTime]).range([0, w])
+                //x.tickFormat(d3.timeFormat("%m-%d"));
+
+                // Y scale will fit values from 0-10 within pixels h-0 (Note the inverted domain for the y-scale: bigger is up!)
+                var y1 = d3.scaleLinear().domain([0, d3.max(data, function (d) { return parseInt(d.send_flow); })]).range([h, 0]);
+                var y2 = d3.scaleLinear().domain([0, d3.max(data, function (d) { return parseInt(d.receive_flow); })]).range([h, 0]);
+
+                // create a line function that can convert data[] into x and y points 
+                var line1 = d3.line()
+                    .x(function (d) {
+                        return x(parseDate(d.day_time));
+                    })
+                    .y(function (d) {
+                        return y1(parseInt(d.send_flow));
+                    })
+                var line2 = d3.line()
+                    // assign the X function to plot our line as we wish
+                    .x(function (d) {
+                        return x(parseDate(d.day_time));
+                    })
+                    .y(function (d) {
+                        return y2(parseInt(d.receive_flow));
+                    })
+
+                // Add an SVG element with the desired dimensions and margin.
+                var graph = d3.select("#graph").append("svg:svg")
+                    .attr("id", "line_graph_svg")
+                    .attr("width", w + m[1] + m[3])
+                    .attr("height", h + m[0] + m[2])
+                    .append("svg:g")
+                    .attr("transform", "translate(" + m[3] + "," + m[0] / 2 + ")");
+
+                graph.append("text")
+                    .attr("x", w / 2 - 10)
+                    .attr("y", 0)
+                    .attr("dy", ".41em")
+                    .attr("id", "graph ip")
+                    .attr("fill", "gray")
+                    .attr("stroke", "gray")
+                    .attr("stroke-width", 0.6)
+                    // .style("text-anchor", "middle")
+                    .style("font-size", "14px")
+                    .text(function () { if ($("#file_input").val()) { return "current IP:" + $("#file_input").val() } })
+
+                // create xAxis
+                var xAxis = d3.axisBottom(x).tickSize(-h).ticks(14).tickFormat(d3.timeFormat("%b %d"));
+
+                // Add the x-axis.
+                graph.append("svg:g")
+                    .attr("class", "x axis")
+                    .attr("transform", "translate(0," + 1.1 * h + ")")
+                    .call(xAxis);
+                // create left yAxis
+                var yAxisLeft = d3.axisLeft(y1).ticks(5)
+
+                // Add the y-axis to the left
+                graph.append("svg:g")
+                    .attr("class", "y axis axisLeft")
+                    .attr("transform", "translate(0,0)")
+                    .call(yAxisLeft);
+
+                d3.select(".y.axis.axisLeft").append("text")
+                    .attr("x", 0)
+                    .attr("y", -12)
+                    .attr("dy", ".41em")
+                    .attr("fill", "green")
+                    .attr("stroke", "green")
+                    .attr("stroke-width", 1)
+                    // .style("text-anchor", "middle")
+                    .style("font-size", "12px")
+                    .text("send_flow")
+                // create right yAxis
+                var yAxisRight = d3.axisRight(y2).ticks(5)
+
+                // Add the y-axis to the right
+                graph.append("svg:g")
+                    .attr("class", "y axis axisRight")
+                    .attr("transform", "translate(" + (w) + ",0)")
+                    .call(yAxisRight);
+
+                d3.select(".y.axis.axisRight").append("text")
+                    .attr("x", 0)
+                    .attr("y", -12)
+                    .attr("dy", ".41em")
+                    .attr("fill", "orange")
+                    .attr("stroke", "orange")
+                    .attr("stroke-width", 1)
+                    // .style("text-anchor", "middle")
+                    .style("font-size", "12px")
+                    .text("receive_flow")
+                // add lines
+                graph.append("svg:path").attr("d", line1(data)).attr("class", "data1");
+                graph.append("svg:path").attr("d", line2(data)).attr("class", "data2");
+
+                // $("#line_graph_svg").mouseenter(function (event) {
+                //     var parseDate = d3.timeParse("%m_%d_%H")
+                //     var timeFormater = d3.timeFormat("%m_%d_%H")
+                //     var mouseTime = timeFormater(parseDate(mouseX))
+                //     $(".force_path").hide()
+                //     $("#" + mouseTime).show()
+                //     var startTime = parseDate("5_30_0")
+                //     var endTime = parseDate("6_14_0")
+
+                //     // // define dimensions of graph
+                //     var m = [80, 80, 80, 80]; // margins
+                //     var w = 1000 - m[1] - m[3];	// width
+
+                //     var x = d3.scaleTime().domain([startTime, endTime]).range([0, w])
+                //     var hoverLineXOffset = m[3] + $("#graph").offset().left;
+                //     var mouseX = event.pageX - hoverLineXOffset;
+                //     console.log(mouseTime)
+                //     console.log("#" + mouseTime + ".force_path")
+                    
+                // })
+                // $("#line_graph_svg").mouseout(function (event) {
+                //     $(".force_path").show()
+
+                // })
+
+                return new Array(x, y1, y2, graph);
+
+            }
+        }
+
+
+
+    </script>

@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<!-- 
+    ref
+    "http://www.popodv.com/dv/2f32a31539099793251.html"
+
+-->
+
+
+<head>
+    <meta charset="utf-8">
+    <title>Force Graph</title>
+
+    <script type="text/javascript" src="../src_scripts/jquery.js"></script>
+    <script src="../src_scripts/d3.v4.js" charset="utf-8"></script>
+    <script type="text/javascript" src="../src_scripts/d3-ForceEdgeBundling.js"></script>
+    
+</head>
+
+<body>
+    <div id="svg">
+    </div>
+    <script>
+        $(function () {
+            file_name = "force_etc_passwd.json"
+            d3.json(file_name, function (json) {
+                console.log(json)
+                var width = 1200;
+                var height = 600;
+                // heat map colorset
+                var colors = ["#5e4fa2", "#3288bd", "#66c2a5", "#abdda4", "#e6f598", "#ffffbf", "#fee08b", "#fdae61", "#f46d43", "#d53e4f", "#9e0142"];
+                //Transform the XML data into a proper format used by the algorithm
+                // var raw_edges = json.documentElement.getElementsByTagName("edge");
+                // var raw_nodes = json.documentElement.getElementsByTagName("node");
+                var raw_nodes = json["nodes"]
+                var raw_edges = json["links"]
+                // for (var key in raw_edges){
+                //     raw_edges[key].source = raw_nodes[raw_edges[key].source]
+                //     raw_edges[key].target = raw_nodes[raw_edges[key].target]
+                //     // console.log(raw_edges[key])
+                // }
+                
+                var eedges = [];
+                var nnodes = {};
+                var min_x = Number.MAX_VALUE;
+                var max_x = 0;
+                var min_y = Number.MAX_VALUE;
+                var max_y = 0;
+
+                for (var i = 0; i < raw_nodes.length; i++) {
+                    var key = raw_nodes[i].id;
+                    var x = raw_nodes[i].x;
+                    var y = raw_nodes[i].y;
+                    var name = raw_nodes[i].ip;
+
+                    nnodes[key] = {
+                        'x': x,
+                        'y': y,
+                        'ip':raw_nodes[i].ip
+                    };
+                    min_x = Math.min(min_x, x);
+                    max_x = Math.max(max_x, x);
+                    min_y = Math.min(min_y, y);
+                    max_y = Math.max(max_y, y); 
+                }
+
+                var min_val = Number.MAX_VALUE;
+                var max_val = 0;
+
+                for (var i = 0; i < raw_edges.length; i++) {
+                    eedges.push({
+                        'source': raw_edges[i].source,
+                        'target': raw_edges[i].target,
+                        'value': raw_edges[i].value,
+                        'time': raw_edges[i].time
+                    });
+                    min_val = Math.min(min_val, raw_edges[i].value);
+                    max_val = Math.max(max_val, raw_edges[i].value);
+
+                }
+
+
+                var colorScale = d3.scaleQuantize()
+                    .range(colors)
+                    .domain([min_val, max_val]);
+
+                console.log('Nodes', nnodes);
+                console.log('Edges', eedges);
+
+                var new_scale_x = d3.scaleLinear().domain([min_x, max_x]).range([1000, 50]);
+                var new_scale_y = d3.scaleLinear().domain([min_y, max_y]).range([560, 50]);
+                for (var i = 0; i < raw_nodes.length; i++) {
+                    nnodes[i].x = new_scale_x(nnodes[i].x);
+                    nnodes[i].y = new_scale_y(nnodes[i].y);
+                }
+
+                //Run the FDEB algorithm using default values on the data
+                var fbundling = d3.ForceEdgeBundling().nodes(nnodes).edges(eedges);
+                var results = fbundling();
+
+                var svg = d3.select("#svg").append("svg")
+                    .attr("width", width)
+                    .attr("height", height);
+
+                svg = svg.append('g');
+                svg.append('rect').attr({
+                    'fill': '#ffffff',
+                    'width': svg.width,
+                    'height': svg.height
+                });
+                svg.attr('transform', 'translate(20, 20)');
+
+
+                // var d3line = d3.svg.
+                //     .x(function (d) {
+                //         return d.x;
+                //     })
+                //     .y(function (d) {
+                //         return d.y;
+                //     })
+                //     .interpolate("linear");
+
+                var d3line = d3.line()
+                    .x(function (d) {
+                        return d.x;
+                    })
+                    .y(function (d) {
+                        return d.y;
+                    })
+
+                //plot the data
+                for (var i = 0; i < results.length; i++) {
+                    svg.append("path").attr("d", d3line(results[i]))
+                        .style("stroke-width", 1)
+                        .style("stroke", "#ff2222")
+                        .attr("fill", "none")
+                        .style('stroke-opacity', 0.115);
+                }
+
+                //draw nodes
+                svg.selectAll('.node')
+                    .data(d3.entries(nnodes))
+                    .enter()
+                    .append('circle')
+                    .classed('node', true)
+                    .attr("r", 2)
+                    .attr("fill", "black")
+                    .attr('cx', function (d) {
+                        return d.value.x;
+                    })
+                    .attr('cy', function (d) {
+                        return d.value.y;
+                    });
+
+
+            });
+        })
+    </script>
+</body>
+
+</html>

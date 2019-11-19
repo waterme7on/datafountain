@@ -118,10 +118,7 @@
                 
 
                 if (error) throw(error);
-                // sort data by day_time
-                data.sort(cmp_time)
                 console.log(data)
-
                 // draw the line graph
                 return_val = draw(data)
                 x = return_val[0]
@@ -218,10 +215,10 @@
                         // draw new path1
                         origin_path = (origin_path_data1).split(/M|L/)
                         new_path_d = "M"+ origin_path[1]
-                        // console.log(origin_path)
                         for (var i = 2; i < origin_path.length; i++){
                             if (parseFloat(origin_path[i].split(",")[0]) > mouseX){
-                                oy = parseFloat(origin_path[i-1].split(",")[1])
+                                oy = parseFloat(origin_path[i].split(",")[1])
+                                // console.log(y1.invert(oy))
                                 d3.select("#hover_text1")
                                     .text("send_flow:"+numeral(parseInt(y1.invert(oy))).format("0,0"))
                                     // .attr("x", 2+mouseX)
@@ -236,7 +233,7 @@
                         new_path_d = "M" + origin_path[1]
                         for (var i = 2; i < origin_path.length; i++) {
                             if (parseFloat(origin_path[i].split(",")[0]) > mouseX) {
-                                oy = parseFloat(origin_path[i-1].split(",")[1])
+                                oy = parseFloat(origin_path[i].split(",")[1])
                                 d3.select("#hover_text2")
                                     .text("receive_flow:" + numeral(parseInt(y1.invert(oy))).format("0,0")
                                     )
@@ -272,6 +269,9 @@
                 var startTime = parseDate("5_30_0")
                 var endTime = parseDate("6_14_0")
                 
+                // sort data by day_time
+                data.sort(cmp_time)
+
                 // // define dimensions of graph
                 var m = [80, 80, 80, 80]; // margins
                 var w = 1000 - m[1] - m[3];	// width
@@ -304,7 +304,6 @@
 
                 // Add an SVG element with the desired dimensions and margin.
                 var graph = d3.select("#graph").append("svg:svg")
-                    .attr("id","line_graph_svg")
                     .attr("width", w + m[1] + m[3])
                     .attr("height", h + m[0] + m[2])
                     .append("svg:g")
